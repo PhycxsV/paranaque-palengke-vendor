@@ -1,0 +1,127 @@
+﻿import { useState } from 'react'
+import { Link, NavLink, Outlet } from 'react-router-dom'
+import {
+  ClipboardList,
+  HandCoins,
+  History,
+  LayoutDashboard,
+  MapPinned,
+  Menu,
+  MessageSquareHeart,
+  ShoppingBag,
+  Store,
+  UserRound,
+  X,
+  Wheat,
+} from 'lucide-react'
+import { FEATURE_TAWAD_ENABLED, PRICE_DISCLAIMER } from '@/constants'
+import { BrandMark } from '@/components/shared/BrandLogo'
+import {
+  SidebarBackdrop,
+  SidebarBrand,
+} from '@/components/shared/PortalSidebarParts'
+import { SIDEBAR_SURFACE, sidebarLinkClass } from '@/components/shared/sidebar-styles'
+import { PortalSwitcher } from '@/components/shared/PortalSwitcher'
+import { TextSizeControl } from '@/components/shared/TextSizeControl'
+import { Button } from '@/components/ui/button'
+const links = [
+  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/commodities', label: 'Commodities', icon: Wheat },
+  { to: '/admin/price-history', label: 'Price History', icon: History },
+  { to: '/admin/branches', label: 'Palengkes', icon: MapPinned },
+  { to: '/admin/users', label: 'Vendor users', icon: UserRound },
+  { to: '/admin/vendors', label: 'Stores', icon: Store },
+  { to: '/admin/offers', label: 'Offers', icon: HandCoins },
+  { to: '/admin/orders', label: 'Orders', icon: ClipboardList },
+  { to: '/admin/feedback', label: 'Feedback', icon: MessageSquareHeart },
+].filter((link) => FEATURE_TAWAD_ENABLED || link.to !== '/admin/offers')
+
+function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <aside className={SIDEBAR_SURFACE}>
+      <SidebarBackdrop />
+      <SidebarBrand portalLabel="LGU Admin" />
+
+      <nav className="relative flex-1 space-y-1 px-3 py-4">
+        {links.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            onClick={onNavigate}
+            className={({ isActive }) => sidebarLinkClass(isActive)}
+          >
+            <Icon className="h-4 w-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="relative space-y-3 border-t border-white/10 p-3">
+        <div className="px-1">
+          <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-wider text-white/50">
+            Text size
+          </p>
+          <TextSizeControl variant="inline" />
+        </div>
+        <PortalSwitcher className="w-full border-white/20 bg-white/10 text-white hover:bg-white/15 [&_svg]:text-white" />
+        <Link
+          to="/customer"
+          onClick={onNavigate}
+          className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white/70 transition hover:bg-white/10 hover:text-white"
+        >
+          <ShoppingBag className="h-4 w-4" />
+          Back to storefront
+        </Link>
+
+        <p className="px-3 text-[10px] leading-tight text-white/40">
+          {PRICE_DISCLAIMER}
+        </p>
+      </div>
+    </aside>
+  )
+}
+
+export default function AdminLayout() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="min-h-screen bg-warm-white lg:grid lg:grid-cols-[260px_1fr]">
+      <div className="hidden lg:block">
+        <div className="sticky top-0 h-screen overflow-y-auto">
+          <AdminSidebar />
+        </div>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            className="absolute inset-0 bg-primary-deep/50 backdrop-blur-sm"
+            aria-label="Close menu overlay"
+            onClick={() => setOpen(false)}
+          />
+          <div className="relative h-full w-[280px] max-w-[85vw] overflow-y-auto">
+            <AdminSidebar onNavigate={() => setOpen(false)} />
+          </div>
+        </div>
+      )}
+
+      <div className="min-w-0">
+        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setOpen((v) => !v)}
+            aria-label="Toggle admin menu"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+          <BrandMark sealClassName="h-9 w-9" subtitle="LGU Admin" className="[&_p:first-child]:text-base" />
+        </div>
+        <main className="px-4 py-6 sm:px-6 lg:px-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  )
+}
