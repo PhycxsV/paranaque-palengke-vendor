@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ChatThreadView } from '@/components/shared/ChatThreadView'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PortalHeader } from '@/components/shared/PortalHeader'
+import { useChatLiveSync } from '@/hooks/useChatLiveSync'
 import { getUnreadCount, isMessageSeenByPeer } from '@/lib/chat'
 import { useChatStore } from '@/stores/chat-store'
 import { useDemoSessionStore } from '@/stores/demo-session-store'
@@ -24,6 +25,7 @@ export default function VendorChatPage() {
   const navigate = useNavigate()
   const { threadId } = useParams<{ threadId?: string }>()
   const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  useChatLiveSync({ intervalMs: 4_000 })
   const vendor = useVendorStore((s) =>
     s.vendors.find((v) => v.id === activeVendorId),
   )

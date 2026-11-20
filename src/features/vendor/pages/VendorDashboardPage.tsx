@@ -56,7 +56,7 @@ export default function VendorDashboardPage() {
     s.vendors.find((v) => v.id === activeVendorId),
   )
   const branches = useBranchStore((s) => s.branches)
-  const getOrdersByVendor = useOrderStore((s) => s.getOrdersByVendor)
+  const orders = useOrderStore((s) => s.orders)
   const getOffersByVendor = useOfferStore((s) => s.getOffersByVendor)
   const products = useProductStore((s) => s.products)
   const chatThreads = useChatStore((s) => s.threads)
@@ -68,8 +68,8 @@ export default function VendorDashboardPage() {
   )
 
   const vendorOrders = useMemo<Order[]>(
-    () => getOrdersByVendor(activeVendorId),
-    [getOrdersByVendor, activeVendorId],
+    () => orders.filter((o) => o.vendorId === activeVendorId),
+    [orders, activeVendorId],
   )
   const vendorOffers = useMemo(
     () => getOffersByVendor(activeVendorId),

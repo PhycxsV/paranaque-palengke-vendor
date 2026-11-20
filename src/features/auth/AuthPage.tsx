@@ -63,14 +63,16 @@ function resolvePostLoginPath(
   next: string,
   home: string,
 ): string {
+  // Vendor / LGU always land on their dashboard after sign-in.
+  if (portal === 'vendor' || portal === 'lgu-admin') return home
   if (!next) return home
   if (next.includes('/login') || next === '/auth' || next.startsWith('/auth?')) {
     return home
   }
   // Customer profile is not the default landing after sign-in.
   if (
-    portal === 'customer' &&
-    (next === '/customer/profile' || next.startsWith('/customer/profile?'))
+    next === '/customer/profile' ||
+    next.startsWith('/customer/profile?')
   ) {
     return home
   }

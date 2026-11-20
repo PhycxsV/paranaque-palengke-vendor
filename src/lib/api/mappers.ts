@@ -61,6 +61,7 @@ export interface StrapiUser {
   phone?: string
   blocked?: boolean
   role?: { type?: string; name?: string } | null
+  ownedVendors?: Array<StrapiRelation<{ documentId: string; name?: string }>>
 }
 
 export interface StrapiVendor {
@@ -163,7 +164,9 @@ function num(value: number | string | null | undefined, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
-function relationId(value: StrapiRelation<{ documentId?: string }> | undefined): string {
+export function relationId(
+  value: StrapiRelation<{ documentId?: string }> | undefined,
+): string {
   if (!value || typeof value !== 'object') return ''
   return value.documentId ?? ''
 }

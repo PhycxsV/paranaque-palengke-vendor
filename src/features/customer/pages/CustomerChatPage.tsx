@@ -121,7 +121,7 @@ export default function CustomerChatPage() {
         <EmptyState
           icon={MessageCircle}
           title="Conversation not found"
-          description="This chat may have been cleared with demo data reset."
+          description="This conversation is no longer available."
           actionLabel="Back to chats"
           onAction={() => navigate('/customer/chat')}
         />

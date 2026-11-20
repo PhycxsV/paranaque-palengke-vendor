@@ -105,9 +105,41 @@ export function useBackendSync() {
     let cancelled = false
 
     async function loadPrivate() {
+      // Lock the vendor workspace before fetching so list pages filter correctly
+      // as soon as orders arrive (no refresh needed).
+      if (user!.role === 'vendor') {
+        const ownedIds =
+          user!.ownedVendorIds?.length > 0
+            ? user!.ownedVendorIds
+            : useVendorStore
+                .getState()
+                .vendors.filter((v) => v.ownerUserId === user!.id)
+                .map((v) => v.id)
+
+        if (ownedIds.length > 0) {
+          useVendorStore.setState((state) => ({
+            vendors: state.vendors.map((v) =>
+              ownedIds.includes(v.id)
+                ? { ...v, ownerUserId: user!.id }
+                : v,
+            ),
+          }))
+          useDemoSessionStore.setState({ activeVendorId: ownedIds[0] })
+        }
+      }
+
       try {
         const orders = await fetchOrders()
-        if (!cancelled) useOrderStore.setState({ orders })
+        if (cancelled) return
+        useOrderStore.setState({ orders })
+
+        if (
+          user!.role === 'vendor' &&
+          !(user!.ownedVendorIds?.length > 0) &&
+          orders[0]?.vendorId
+        ) {
+          useDemoSessionStore.setState({ activeVendorId: orders[0].vendorId })
+        }
       } catch {
         // Orders endpoint may be restricted for this role.
       }
@@ -135,18 +167,6 @@ export function useBackendSync() {
         }
       } catch {
         // Chat may be unavailable for this session.
-      }
-
-      if (user!.role === 'vendor') {
-        const owned = useVendorStore
-          .getState()
-          .vendors.filter((v) => v.ownerUserId === user!.id)
-        if (owned[0]) {
-          const current = useDemoSessionStore.getState().activeVendorId
-          if (!owned.some((v) => v.id === current)) {
-            useDemoSessionStore.setState({ activeVendorId: owned[0].id })
-          }
-        }
       }
     }
 

@@ -1,9 +1,10 @@
 ﻿import { useMemo, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ClipboardList,
   HandCoins,
   LayoutDashboard,
+  LogOut,
   MessageCircle,
   MessageSquareHeart,
   MoreHorizontal,
@@ -11,6 +12,7 @@ import {
   Store,
   type LucideIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { TextSizeControl } from '@/components/shared/TextSizeControl'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,17 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { FEATURE_TAWAD_ENABLED } from '@/constants'
 import { getTotalUnread } from '@/lib/chat'
 import { formatVendorTime, isVendorAcceptingOrders } from '@/lib/vendor-hours'
 import { cn } from '@/lib/utils'
+import { useChatLiveSync } from '@/hooks/useChatLiveSync'
+import { useOrdersLiveSync } from '@/hooks/useOrdersLiveSync'
+import { useAuthStore } from '@/stores/auth-store'
 import { useChatStore } from '@/stores/chat-store'
 import { useDemoSessionStore } from '@/stores/demo-session-store'
 import { useOrderStore } from '@/stores/order-store'
@@ -211,10 +209,16 @@ function MoreSheet({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
-  const setActiveVendorId = useDemoSessionStore((s) => s.setActiveVendorId)
-  const vendors = useVendorStore((s) => s.vendors)
+  const navigate = useNavigate()
+  const logout = useAuthStore((s) => s.logout)
   const close = () => onOpenChange(false)
+
+  function handleSignOut() {
+    close()
+    logout()
+    toast.success('Signed out')
+    navigate('/login', { replace: true })
+  }
 
   const links: { to: string; label: string; hint: string; icon: LucideIcon }[] = [
     { to: '/vendor/feedback', label: 'Feedback', hint: 'Customer reviews', icon: MessageSquareHeart },
@@ -232,24 +236,6 @@ function MoreSheet({
         </DialogHeader>
         <DialogBody>
           <div className="space-y-6">
-            <section className="space-y-2">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                Active store (demo)
-              </p>
-              <Select value={activeVendorId} onValueChange={setActiveVendorId}>
-                <SelectTrigger aria-label="Active store">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </section>
-
             <ul className="grid grid-cols-2 gap-3">
               {links.map(({ to, label, hint, icon: Icon }) => (
                 <li key={to}>
@@ -278,6 +264,16 @@ function MoreSheet({
               </p>
               <TextSizeControl variant="inline" />
             </section>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-center gap-2"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
           </div>
         </DialogBody>
       </DialogContent>
@@ -288,14 +284,25 @@ function MoreSheet({
 export function VendorLayout() {
   const [moreOpen, setMoreOpen] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const logout = useAuthStore((s) => s.logout)
   const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
   const vendorName = useVendorStore(
     (s) => s.vendors.find((v) => v.id === activeVendorId)?.name,
   )
+  // Poll while the vendor workspace is open so new orders/chats show up live.
+  useOrdersLiveSync({ intervalMs: 4_000 })
+  useChatLiveSync({ intervalMs: 4_000 })
 
   const moreActive = ['/vendor/feedback', '/vendor/store', '/vendor/offers'].some(
     (path) => location.pathname.startsWith(path),
   )
+
+  function handleSignOut() {
+    logout()
+    toast.success('Signed out')
+    navigate('/login', { replace: true })
+  }
 
   return (
     <div className="min-h-screen bg-warm-white lg:grid lg:grid-cols-[272px_1fr]">
@@ -319,7 +326,15 @@ export function VendorLayout() {
           <div className="flex items-center gap-3">
             <StoreStatusPill />
             <TextSizeControl />
-            <Button asChild variant="outline" size="sm">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign out
             </Button>
           </div>
         </div>

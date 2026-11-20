@@ -12,6 +12,7 @@ import {
   type AuthRole,
   type AuthUser,
 } from '@/lib/api'
+import { useDemoSessionStore } from '@/stores/demo-session-store'
 
 interface AuthState {
   user: AuthUser | null
@@ -53,6 +54,14 @@ export const useAuthStore = create<AuthState>()(
             password,
             roleHint,
           )
+          if (
+            session.user.role === 'vendor' &&
+            session.user.ownedVendorIds[0]
+          ) {
+            useDemoSessionStore.setState({
+              activeVendorId: session.user.ownedVendorIds[0],
+            })
+          }
           set({ user: session.user, jwt: session.jwt, hydrated: true })
           return { ok: true }
         } catch (error) {
@@ -108,6 +117,18 @@ export const useAuthStore = create<AuthState>()(
             ) {
               user.role = cached.role
             }
+            if (
+              (!user.ownedVendorIds || user.ownedVendorIds.length === 0) &&
+              cached.ownedVendorIds?.length
+            ) {
+              user.ownedVendorIds = cached.ownedVendorIds
+            }
+          }
+          user.ownedVendorIds = user.ownedVendorIds ?? []
+          if (user.role === 'vendor' && user.ownedVendorIds[0]) {
+            useDemoSessionStore.setState({
+              activeVendorId: user.ownedVendorIds[0],
+            })
           }
           set({ user, jwt: token, hydrated: true })
         } catch {

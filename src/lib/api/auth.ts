@@ -1,5 +1,5 @@
 import { apiRequest, setStoredToken } from './client'
-import type { StrapiUser } from './mappers'
+import { relationId, type StrapiUser } from './mappers'
 
 export type AuthRole = 'customer' | 'vendor' | 'lgu-admin' | 'authenticated' | string
 
@@ -10,11 +10,20 @@ export interface AuthUser {
   name: string
   phone: string
   role: AuthRole
+  /** Vendor stores owned by this user (documentIds). */
+  ownedVendorIds: string[]
 }
 
 export interface AuthSession {
   jwt: string
   user: AuthUser
+}
+
+function ownedVendorIdsFromUser(raw: StrapiUser): string[] {
+  if (!Array.isArray(raw.ownedVendors)) return []
+  return raw.ownedVendors
+    .map((entry) => relationId(entry))
+    .filter((id) => Boolean(id))
 }
 
 function mapAuthUser(raw: StrapiUser, roleFallback?: AuthRole): AuthUser {
@@ -25,6 +34,7 @@ function mapAuthUser(raw: StrapiUser, roleFallback?: AuthRole): AuthUser {
     name: raw.name?.trim() || raw.username || '',
     phone: raw.phone ?? '',
     role: (raw.role?.type || roleFallback || 'authenticated') as AuthRole,
+    ownedVendorIds: ownedVendorIdsFromUser(raw),
   }
 }
 
@@ -46,11 +56,19 @@ async function hydrateRole(
 ): Promise<AuthUser> {
   try {
     const me = await apiRequest<StrapiUser>('/users/me', {
-      query: { 'populate[role]': 'true' },
+      query: {
+        'populate[role]': 'true',
+        'populate[ownedVendors]': 'true',
+      },
       token: jwt,
     })
     return mapAuthUser(
-      { ...loginUser, ...me, role: me.role ?? loginUser.role },
+      {
+        ...loginUser,
+        ...me,
+        role: me.role ?? loginUser.role,
+        ownedVendors: me.ownedVendors ?? loginUser.ownedVendors,
+      },
       roleHint,
     )
   } catch {
@@ -123,7 +141,10 @@ export async function registerCustomer(input: {
 
 export async function fetchCurrentUser(token?: string): Promise<AuthUser> {
   const me = await apiRequest<StrapiUser>('/users/me', {
-    query: { 'populate[role]': 'true' },
+    query: {
+      'populate[role]': 'true',
+      'populate[ownedVendors]': 'true',
+    },
     token,
   })
   return mapAuthUser(me)

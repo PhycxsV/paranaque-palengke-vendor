@@ -58,14 +58,14 @@ function itemSummary(order: Order) {
 
 export default function VendorOrdersPage() {
   const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
-  const getOrdersByVendor = useOrderStore((s) => s.getOrdersByVendor)
+  const orders = useOrderStore((s) => s.orders)
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryFilter>('all')
   const [query, setQuery] = useState('')
 
   const vendorOrders = useMemo<Order[]>(
-    () => getOrdersByVendor(activeVendorId),
-    [getOrdersByVendor, activeVendorId],
+    () => orders.filter((o) => o.vendorId === activeVendorId),
+    [orders, activeVendorId],
   )
 
   const tabs = useMemo<FilterTabItem<FilterTab>[]>(
