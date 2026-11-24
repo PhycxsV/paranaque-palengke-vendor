@@ -12,7 +12,7 @@ import {
   type AuthRole,
   type AuthUser,
 } from '@/lib/api'
-import { useDemoSessionStore } from '@/stores/demo-session-store'
+import { useSessionStore } from '@/stores/session-reset-store'
 
 interface AuthState {
   user: AuthUser | null
@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
             session.user.role === 'vendor' &&
             session.user.ownedVendorIds[0]
           ) {
-            useDemoSessionStore.setState({
+            useSessionStore.setState({
               activeVendorId: session.user.ownedVendorIds[0],
             })
           }
@@ -126,7 +126,7 @@ export const useAuthStore = create<AuthState>()(
           }
           user.ownedVendorIds = user.ownedVendorIds ?? []
           if (user.role === 'vendor' && user.ownedVendorIds[0]) {
-            useDemoSessionStore.setState({
+            useSessionStore.setState({
               activeVendorId: user.ownedVendorIds[0],
             })
           }

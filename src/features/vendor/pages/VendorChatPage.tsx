@@ -8,7 +8,7 @@ import { PortalHeader } from '@/components/shared/PortalHeader'
 import { useChatLiveSync } from '@/hooks/useChatLiveSync'
 import { getUnreadCount, isMessageSeenByPeer } from '@/lib/chat'
 import { useChatStore } from '@/stores/chat-store'
-import { useDemoSessionStore } from '@/stores/demo-session-store'
+import { useSessionStore } from '@/stores/session-reset-store'
 import { useVendorStore } from '@/stores/vendor-store'
 import { cn, formatDateTime } from '@/lib/utils'
 
@@ -24,7 +24,7 @@ function initials(name: string) {
 export default function VendorChatPage() {
   const navigate = useNavigate()
   const { threadId } = useParams<{ threadId?: string }>()
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  const activeVendorId = useSessionStore((s) => s.activeVendorId)
   useChatLiveSync({ intervalMs: 4_000 })
   const vendor = useVendorStore((s) =>
     s.vendors.find((v) => v.id === activeVendorId),

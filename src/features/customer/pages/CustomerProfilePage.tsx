@@ -19,10 +19,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { isApiConfigured } from '@/lib/api'
+import { formatCoordinate, parseDropoffCoordinates } from '@/lib/coordinates'
 import { readProfilePhoto } from '@/lib/profile-photo'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 import {
+  hydrateCustomerProfile,
+  persistCustomerProfile,
   useCustomerProfileStore,
   type CustomerProfile,
 } from '@/stores/customer-profile-store'
@@ -58,11 +61,21 @@ export default function CustomerProfilePage() {
   const accountPhone = authUser?.phone?.trim() || ''
 
   const [form, setForm] = useState<CustomerProfile>(() => withPhotoDefaults(profile))
+  const [latText, setLatText] = useState(() => formatCoordinate(profile.dropoffLat))
+  const [lngText, setLngText] = useState(() => formatCoordinate(profile.dropoffLng))
   const [photoBusy, setPhotoBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setForm(withPhotoDefaults(profile))
+    setLatText(formatCoordinate(profile.dropoffLat))
+    setLngText(formatCoordinate(profile.dropoffLng))
   }, [profile])
+
+  useEffect(() => {
+    if (!isApiConfigured() || !authUser) return
+    void hydrateCustomerProfile()
+  }, [authUser])
 
   useEffect(() => {
     const patch: Partial<CustomerProfile> = {}
@@ -83,6 +96,9 @@ export default function CustomerProfilePage() {
 
   const dirty =
     form.deliveryAddress !== (profile.deliveryAddress ?? '') ||
+    form.dropoffLandmark !== (profile.dropoffLandmark ?? '') ||
+    latText.trim() !== formatCoordinate(profile.dropoffLat) ||
+    lngText.trim() !== formatCoordinate(profile.dropoffLng) ||
     form.notes !== (profile.notes ?? '') ||
     form.photoUrl !== (profile.photoUrl ?? '')
 
@@ -104,7 +120,7 @@ export default function CustomerProfilePage() {
     }
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     const phone = accountPhone || form.contactNumber.trim()
     if (!phone) {
@@ -115,12 +131,46 @@ export default function CustomerProfilePage() {
       toast.error('Please enter your drop-off address.')
       return
     }
-    updateProfile({
+    const coordinates = parseDropoffCoordinates(latText, lngText)
+    if (!coordinates.ok) {
+      toast.error(coordinates.message)
+      return
+    }
+
+    const next = {
       ...form,
       name: accountName || form.name,
       contactNumber: phone,
-    })
-    toast.success('Profile saved. Checkout will use these details.')
+      dropoffLat: coordinates.lat,
+      dropoffLng: coordinates.lng,
+    }
+    // Local cache first so the form never loses edits if the API is unreachable.
+    updateProfile(next)
+
+    if (!isApiConfigured() || !authUser) {
+      toast.success('Profile saved. Checkout will use these details.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await persistCustomerProfile({
+        deliveryAddress: next.deliveryAddress,
+        dropoffLat: next.dropoffLat,
+        dropoffLng: next.dropoffLng,
+        dropoffLandmark: next.dropoffLandmark,
+        notes: next.notes,
+      })
+      toast.success('Profile saved. Checkout will use these details.')
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? `Saved on this device only: ${error.message}`
+          : 'Saved on this device only. Could not reach the server.',
+      )
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleSignOut() {
@@ -296,6 +346,52 @@ export default function CustomerProfilePage() {
                   />
                 </div>
                 <div className="grid gap-1.5 sm:col-span-2">
+                  <Label htmlFor="profile-landmark">Landmark</Label>
+                  <Input
+                    id="profile-landmark"
+                    value={form.dropoffLandmark}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        dropoffLandmark: e.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Beside the blue gate, near the chapel"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="profile-lat">Latitude</Label>
+                  <Input
+                    id="profile-lat"
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min={-90}
+                    max={90}
+                    value={latText}
+                    onChange={(e) => setLatText(e.target.value)}
+                    placeholder="14.4793"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="profile-lng">Longitude</Label>
+                  <Input
+                    id="profile-lng"
+                    type="number"
+                    inputMode="decimal"
+                    step="any"
+                    min={-180}
+                    max={180}
+                    value={lngText}
+                    onChange={(e) => setLngText(e.target.value)}
+                    placeholder="121.0198"
+                  />
+                </div>
+                <p className="text-xs text-muted sm:col-span-2">
+                  Keri uses this pin to find your drop-off point. Enter both
+                  coordinates together; landmark and pin are required at checkout.
+                </p>
+                <div className="grid gap-1.5 sm:col-span-2">
                   <Label htmlFor="profile-notes">Default notes (optional)</Label>
                   <Textarea
                     id="profile-notes"
@@ -310,9 +406,9 @@ export default function CustomerProfilePage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Button type="submit" disabled={!dirty && hasSaved}>
+                <Button type="submit" disabled={saving || (!dirty && hasSaved)}>
                   <Check className="h-4 w-4" />
-                  {hasSaved ? 'Save changes' : 'Save profile'}
+                  {saving ? 'Saving…' : hasSaved ? 'Save changes' : 'Save profile'}
                 </Button>
                 <Button asChild type="button" variant="outline">
                   <Link to="/customer/orders">View my orders</Link>

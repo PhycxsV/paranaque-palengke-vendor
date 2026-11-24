@@ -20,7 +20,7 @@ import { FEATURE_TAWAD_ENABLED } from '@/constants'
 import { getTotalUnread } from '@/lib/chat'
 import { useAuthStore } from '@/stores/auth-store'
 import { useChatStore } from '@/stores/chat-store'
-import { useDemoSessionStore } from '@/stores/demo-session-store'
+import { useSessionStore } from '@/stores/session-reset-store'
 
 const links = [
   { to: '/vendor', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -35,7 +35,7 @@ const links = [
 export function VendorSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
   const logout = useAuthStore((s) => s.logout)
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  const activeVendorId = useSessionStore((s) => s.activeVendorId)
   const chatThreads = useChatStore((s) => s.threads)
   const chatMessages = useChatStore((s) => s.messages)
   const chatUnread = getTotalUnread(

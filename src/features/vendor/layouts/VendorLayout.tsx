@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ClipboardList,
@@ -31,13 +31,13 @@ import { useChatLiveSync } from '@/hooks/useChatLiveSync'
 import { useOrdersLiveSync } from '@/hooks/useOrdersLiveSync'
 import { useAuthStore } from '@/stores/auth-store'
 import { useChatStore } from '@/stores/chat-store'
-import { useDemoSessionStore } from '@/stores/demo-session-store'
+import { useSessionStore } from '@/stores/session-reset-store'
 import { useOrderStore } from '@/stores/order-store'
 import { useVendorStore } from '@/stores/vendor-store'
 import { VendorSidebar } from './VendorSidebar'
 
 function StoreStatusPill({ className }: { className?: string }) {
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  const activeVendorId = useSessionStore((s) => s.activeVendorId)
   const vendor = useVendorStore((s) =>
     s.vendors.find((v) => v.id === activeVendorId),
   )
@@ -72,7 +72,7 @@ function StoreStatusPill({ className }: { className?: string }) {
 
 /** Live counts for the tab bar badges. */
 function useVendorBadges() {
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  const activeVendorId = useSessionStore((s) => s.activeVendorId)
   const orders = useOrderStore((s) => s.orders)
   const threads = useChatStore((s) => s.threads)
   const messages = useChatStore((s) => s.messages)
@@ -92,7 +92,7 @@ function useVendorBadges() {
 
 /** App-style header shown on phones. */
 function MobileTopBar() {
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  const activeVendorId = useSessionStore((s) => s.activeVendorId)
   const vendor = useVendorStore((s) =>
     s.vendors.find((v) => v.id === activeVendorId),
   )
@@ -286,7 +286,7 @@ export function VendorLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const logout = useAuthStore((s) => s.logout)
-  const activeVendorId = useDemoSessionStore((s) => s.activeVendorId)
+  const activeVendorId = useSessionStore((s) => s.activeVendorId)
   const vendorName = useVendorStore(
     (s) => s.vendors.find((v) => v.id === activeVendorId)?.name,
   )

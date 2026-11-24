@@ -15,7 +15,8 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useBranchStore } from '@/stores/branch-store'
 import { useChatStore } from '@/stores/chat-store'
 import { useCommodityStore } from '@/stores/commodity-store'
-import { useDemoSessionStore } from '@/stores/demo-session-store'
+import { hydrateCustomerProfile } from '@/stores/customer-profile-store'
+import { useSessionStore } from '@/stores/session-reset-store'
 import { useOrderStore } from '@/stores/order-store'
 import { useProductStore } from '@/stores/product-store'
 import { useVendorStore } from '@/stores/vendor-store'
@@ -64,12 +65,12 @@ export function useBackendSync() {
         })
         useProductStore.setState({ products })
 
-        const session = useDemoSessionStore.getState()
+        const session = useSessionStore.getState()
         if (
           !vendorBundle.vendors.some((v) => v.id === session.activeVendorId) &&
           vendorBundle.vendors[0]
         ) {
-          useDemoSessionStore.setState({
+          useSessionStore.setState({
             activeVendorId: vendorBundle.vendors[0].id,
           })
         }
@@ -124,7 +125,7 @@ export function useBackendSync() {
                 : v,
             ),
           }))
-          useDemoSessionStore.setState({ activeVendorId: ownedIds[0] })
+          useSessionStore.setState({ activeVendorId: ownedIds[0] })
         }
       }
 
@@ -138,7 +139,7 @@ export function useBackendSync() {
           !(user!.ownedVendorIds?.length > 0) &&
           orders[0]?.vendorId
         ) {
-          useDemoSessionStore.setState({ activeVendorId: orders[0].vendorId })
+          useSessionStore.setState({ activeVendorId: orders[0].vendorId })
         }
       } catch {
         // Orders endpoint may be restricted for this role.
@@ -153,6 +154,11 @@ export function useBackendSync() {
         }
       } catch {
         // Price history is LGU-only.
+      }
+
+      if (user!.role === 'customer') {
+        // Restores saved drop-off details after a session restore or sign-in.
+        await hydrateCustomerProfile()
       }
 
       try {
