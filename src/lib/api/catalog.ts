@@ -12,6 +12,7 @@ import {
   mapProduct,
   mapVendor,
   mapVendorUser,
+  toStrapiTime,
   type StrapiBranch,
   type StrapiCommodity,
   type StrapiMedia,
@@ -174,8 +175,8 @@ export async function createVendor(input: VendorCreateInput): Promise<Vendor> {
         categories: input.categories,
         imageUrl: input.imageUrl.trim(),
         isAvailable: input.isAvailable,
-        opensAt: input.opensAt,
-        cutoffTime: input.cutoffTime,
+        opensAt: toStrapiTime(input.opensAt),
+        cutoffTime: toStrapiTime(input.cutoffTime),
         demoQrLabel: input.qrLabel.trim(),
         rating: input.rating,
         ...(input.ownerUserId ? { owner: input.ownerUserId } : {}),
@@ -205,9 +206,11 @@ export async function updateVendor(
   if ('isAvailable' in input && input.isAvailable !== undefined) {
     data.isAvailable = input.isAvailable
   }
-  if ('opensAt' in input && input.opensAt !== undefined) data.opensAt = input.opensAt
+  if ('opensAt' in input && input.opensAt !== undefined) {
+    data.opensAt = toStrapiTime(input.opensAt)
+  }
   if ('cutoffTime' in input && input.cutoffTime !== undefined) {
-    data.cutoffTime = input.cutoffTime
+    data.cutoffTime = toStrapiTime(input.cutoffTime)
   }
   if ('rating' in input && input.rating !== undefined) data.rating = input.rating
   if ('branchId' in input && input.branchId !== undefined) data.branch = input.branchId

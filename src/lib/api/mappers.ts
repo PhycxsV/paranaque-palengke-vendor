@@ -188,6 +188,12 @@ export function normalizeTime(value: string | null | undefined, fallback: string
   return match ? `${match[1]}:${match[2]}` : fallback
 }
 
+/** Strapi time fields only accept `HH:mm:ss.SSS`, so pad `HH:mm` before saving. */
+export function toStrapiTime(value: string): string {
+  const match = /^(\d{2}):(\d{2})/.exec(value)
+  return match ? `${match[1]}:${match[2]}:00.000` : value
+}
+
 export function mapBranch(raw: StrapiBranch): Branch {
   return {
     id: raw.documentId,
