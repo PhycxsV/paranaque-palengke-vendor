@@ -9,7 +9,6 @@ import {
   vendorDecideOrder,
 } from '@/lib/api'
 import {
-  DELIVERY_FLOW,
   generatePickupCode,
   normalizeDeliveryStatus,
 } from '@/lib/delivery'
@@ -24,6 +23,7 @@ import { distanceKm } from '@/lib/coordinates'
 import { generateId } from '@/lib/utils'
 import { isVendorAcceptingOrders } from '@/lib/vendor-hours'
 import { useBranchStore } from '@/stores/branch-store'
+import { useProductStore } from '@/stores/product-store'
 import type {
   CartItem,
   CheckoutFormInput,
@@ -314,6 +314,13 @@ export const useOrderStore = create<OrderState>()(
           }
         }
 
+        const deductStock = () => {
+          const adjustStock = useProductStore.getState().adjustStock
+          for (const item of order.items) {
+            adjustStock(item.productId, -item.quantity)
+          }
+        }
+
         if (isApiConfigured()) {
           try {
             const result = await vendorDecideOrder(orderId, 'confirmed')
@@ -326,6 +333,7 @@ export const useOrderStore = create<OrderState>()(
             set({
               orders: get().orders.map((o) => (o.id === orderId ? updated : o)),
             })
+            deductStock()
             return { ok: true, order: updated }
           } catch (error) {
             return {
@@ -345,6 +353,7 @@ export const useOrderStore = create<OrderState>()(
           set({
             orders: get().orders.map((o) => (o.id === orderId ? updated : o)),
           })
+          deductStock()
           return { ok: true, order: updated }
         } catch (error) {
           return {
@@ -380,44 +389,34 @@ export const useOrderStore = create<OrderState>()(
         }
 
         const current = normalizeDeliveryStatus(order.deliveryStatus)
-        const idx = DELIVERY_FLOW.indexOf(current)
-        if (idx < 0 || idx >= DELIVERY_FLOW.length - 1) {
-          return { ok: false, message: 'Delivery is already complete.' }
+        // Vendor may only mark Ready for Keri. Out for delivery / delivered
+        // are written by the Keri webhook.
+        if (current !== 'packing') {
+          return {
+            ok: false,
+            message:
+              current === 'ready_for_keri'
+                ? 'Waiting for Keri pickup. Further delivery updates come from Keri.'
+                : 'Delivery updates after Ready for Keri come from Keri.',
+          }
         }
 
-        const next = DELIVERY_FLOW[idx + 1]!
+        const next = 'ready_for_keri' as const
         const nowIso = new Date().toISOString()
-        let keriTrackingId = order.keriTrackingId
-        if (next === 'out_for_delivery') {
-          keriTrackingId =
-            siblings.find((s) => s.keriTrackingId)?.keriTrackingId ??
-            generateId('KERI')
-        }
 
         if (isApiConfigured()) {
           try {
-            const result = await advanceOrderDelivery(
-              orderId,
-              next,
-              next === 'out_for_delivery' ? keriTrackingId : undefined,
-            )
+            const result = await advanceOrderDelivery(orderId, next)
             set({
               orders: get().orders.map((o) => {
-                if (o.bookingGroupId !== order.bookingGroupId) return o
-                if (o.id === orderId) {
-                  return {
-                    ...o,
-                    deliveryStatus: result.deliveryStatus ?? next,
-                    pickupCode: result.pickupCode ?? o.pickupCode,
-                    keriTrackingId:
-                      result.keriTrackingId ?? keriTrackingId ?? o.keriTrackingId,
-                    updatedAt: nowIso,
-                  }
+                if (o.id !== orderId) return o
+                return {
+                  ...o,
+                  deliveryStatus: result.deliveryStatus ?? next,
+                  pickupCode: result.pickupCode ?? o.pickupCode,
+                  keriTrackingId: result.keriTrackingId ?? o.keriTrackingId,
+                  updatedAt: nowIso,
                 }
-                if (next === 'out_for_delivery' && keriTrackingId) {
-                  return { ...o, keriTrackingId, updatedAt: nowIso }
-                }
-                return o
               }),
             })
             return { ok: true, order: get().orders.find((o) => o.id === orderId)! }
@@ -432,34 +431,17 @@ export const useOrderStore = create<OrderState>()(
           }
         }
 
-        const pickupCode =
-          next === 'ready_for_keri'
-            ? order.pickupCode || generatePickupCode()
-            : order.pickupCode
+        const pickupCode = order.pickupCode || generatePickupCode()
 
         set({
           orders: get().orders.map((o) => {
-            if (o.bookingGroupId !== order.bookingGroupId) return o
-            if (o.id === orderId) {
-              return {
-                ...o,
-                deliveryStatus: next,
-                pickupCode: pickupCode ?? o.pickupCode,
-                keriTrackingId:
-                  next === 'out_for_delivery' || o.keriTrackingId
-                    ? keriTrackingId ?? o.keriTrackingId
-                    : o.keriTrackingId,
-                updatedAt: nowIso,
-              }
+            if (o.id !== orderId) return o
+            return {
+              ...o,
+              deliveryStatus: next,
+              pickupCode,
+              updatedAt: nowIso,
             }
-            if (next === 'out_for_delivery' && keriTrackingId) {
-              return {
-                ...o,
-                keriTrackingId,
-                updatedAt: nowIso,
-              }
-            }
-            return o
           }),
         })
 

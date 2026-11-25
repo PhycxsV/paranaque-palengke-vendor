@@ -9,7 +9,6 @@ import { SectionCard } from '@/components/shared/SectionCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ProductImage } from '@/components/shared/ProductImage'
 import { useOrderStore } from '@/stores/order-store'
-import { RateVendorCard } from '../components/RateVendorCard'
 import { ORDER_STATUS_MESSAGES } from '@/constants'
 import { formatDateTime, formatPeso } from '@/lib/utils'
 
@@ -99,6 +98,7 @@ export default function OrderDetailPage() {
         {allGroupConfirmed ? (
           <DeliveryMilestoneTracker
             deliveryStatus={order.deliveryStatus ?? 'packing'}
+            podUrl={order.podUrl}
           />
         ) : waitingOnOtherVendors ? (
           <Notice tone="warning" title="Waiting on other vendors">
@@ -115,8 +115,6 @@ export default function OrderDetailPage() {
             </Link>
           </Button>
         )}
-
-        <RateVendorCard order={order} />
 
         <SectionCard title="Order information" icon={ReceiptText}>
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">

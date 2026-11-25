@@ -3,6 +3,7 @@ import { Toaster } from 'sonner'
 import { FEATURE_TAWAD_ENABLED } from '@/constants'
 import '@/stores/text-size-store'
 import { useBackendSync } from '@/hooks/useBackendSync'
+import { useIdleLogout } from '@/hooks/useIdleLogout'
 import { RequireAuth } from '@/components/shared/RequireAuth'
 import { VendorLayout } from '@/features/vendor/layouts/VendorLayout'
 import AuthPage from '@/features/auth/AuthPage'
@@ -18,6 +19,7 @@ import NotFoundPage from '@/features/customer/pages/NotFoundPage'
 
 function AppShell() {
   const { catalogReady, catalogError, apiConfigured } = useBackendSync()
+  useIdleLogout()
 
   if (apiConfigured && !catalogReady) {
     return (

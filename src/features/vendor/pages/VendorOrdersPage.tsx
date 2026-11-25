@@ -4,6 +4,7 @@ import { ChevronRight, ClipboardList, Search, Truck } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { FilterTabs, type FilterTabItem } from '@/components/shared/FilterTabs'
 import { PortalHeader } from '@/components/shared/PortalHeader'
+import { ProofOfDeliveryButton } from '@/components/shared/ProofOfDeliveryButton'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -211,7 +212,7 @@ export default function VendorOrdersPage() {
                       {formatDateTime(order.createdAt)}
                     </td>
                     <td className="px-4 py-3.5 text-right font-extrabold text-primary-deep">
-                      {formatPeso(order.total)}
+                      {formatPeso(order.subtotal)}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex flex-col items-start gap-1">
@@ -225,6 +226,12 @@ export default function VendorOrdersPage() {
                               ]
                             }
                           </Badge>
+                        ) : null}
+                        {order.podUrl ? (
+                          <ProofOfDeliveryButton
+                            podUrl={order.podUrl}
+                            className="relative z-10 mt-0.5"
+                          />
                         ) : null}
                       </div>
                     </td>
@@ -258,21 +265,26 @@ export default function VendorOrdersPage() {
                       </p>
                     </div>
                     <p className="text-base font-extrabold text-primary-deep">
-                      {formatPeso(order.total)}
+                      {formatPeso(order.subtotal)}
                     </p>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-                    <StatusBadge status={order.status} />
-                    {order.status === 'confirmed' ? (
-                      <Badge variant="bay">
-                        <Truck className="h-3 w-3" />
-                        {
-                          DELIVERY_STATUS_LABELS[
-                            normalizeDeliveryStatus(order.deliveryStatus)
-                          ]
-                        }
-                      </Badge>
-                    ) : null}
+                    <div className="relative z-10 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={order.status} />
+                      {order.status === 'confirmed' ? (
+                        <Badge variant="bay">
+                          <Truck className="h-3 w-3" />
+                          {
+                            DELIVERY_STATUS_LABELS[
+                              normalizeDeliveryStatus(order.deliveryStatus)
+                            ]
+                          }
+                        </Badge>
+                      ) : null}
+                      {order.podUrl ? (
+                        <ProofOfDeliveryButton podUrl={order.podUrl} />
+                      ) : null}
+                    </div>
                     <span className={cn('font-mono text-[11px] text-muted')}>
                       {order.id}
                     </span>

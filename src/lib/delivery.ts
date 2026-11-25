@@ -8,15 +8,6 @@ export const DELIVERY_FLOW: DeliveryStatus[] = [
   'delivered',
 ]
 
-const ADVANCE_LABELS: Record<
-  Exclude<DeliveryStatus, 'delivered'>,
-  string
-> = {
-  packing: 'Mark ready for Keri',
-  ready_for_keri: 'Mark out for delivery (Keri)',
-  out_for_delivery: 'Mark delivered',
-}
-
 /**
  * Normalize persisted / legacy delivery status.
  * Older versions used `awaiting_pickup` (= packing).
@@ -36,9 +27,13 @@ export function normalizeDeliveryStatus(
   return 'packing'
 }
 
+/**
+ * Vendor-only advance action. After Ready for Keri, out_for_delivery /
+ * delivered come from the Keri webhook — vendors cannot push those.
+ */
 export function nextDeliveryActionLabel(status: DeliveryStatus): string | null {
-  if (status === 'delivered') return null
-  return ADVANCE_LABELS[status]
+  if (status === 'packing') return 'Mark ready for Keri'
+  return null
 }
 
 /** Random 5-digit PIN (10000–99999) for vendor ↔ rider pickup verification. */

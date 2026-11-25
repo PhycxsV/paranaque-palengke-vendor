@@ -5,7 +5,7 @@ import {
   CreditCard,
   MapPin,
   Package,
-  Truck,
+  PackageCheck,
   User,
   XCircle,
 } from 'lucide-react'
@@ -167,7 +167,9 @@ export default function VendorOrderDetailPage() {
           <Notice tone="success" title="Payment confirmed">
             {deliveryStatus === 'delivered'
               ? 'Keri delivery is complete.'
-              : 'Prepare the order for Keri pickup and update the delivery status as it moves.'}
+              : deliveryStatus === 'packing'
+                ? 'Pack the order, then mark it Ready for Keri. Delivery updates after that come from Keri.'
+                : 'Waiting for Keri. Out for delivery and delivered are updated by Keri.'}
           </Notice>
         )
       case 'payment_rejected':
@@ -235,14 +237,10 @@ export default function VendorOrderDetailPage() {
                 <dt>Subtotal</dt>
                 <dd>{formatPeso(order.subtotal)}</dd>
               </div>
-              <div className="flex justify-between text-muted">
-                <dt>Delivery (Keri)</dt>
-                <dd>{formatPeso(order.deliveryFee ?? 0)}</dd>
-              </div>
               <div className="flex items-baseline justify-between border-t border-border pt-2">
-                <dt className="font-bold text-primary-deep">Order total</dt>
+                <dt className="font-bold text-primary-deep">Your total</dt>
                 <dd className="font-display text-2xl font-extrabold text-primary">
-                  {formatPeso(order.total)}
+                  {formatPeso(order.subtotal)}
                 </dd>
               </div>
             </dl>
@@ -251,7 +249,10 @@ export default function VendorOrderDetailPage() {
           {order.status === 'confirmed' ? (
             <SectionCard title="Keri delivery" icon={Truck}>
               <div className="space-y-5">
-                <DeliveryMilestoneTracker deliveryStatus={deliveryStatus} />
+                <DeliveryMilestoneTracker
+                  deliveryStatus={deliveryStatus}
+                  podUrl={order.podUrl}
+                />
                 {order.pickupCode ? (
                   <div className="rounded-2xl border-2 border-primary/30 bg-primary-50/80 p-4 text-center sm:p-5">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-primary-deep">
@@ -281,7 +282,7 @@ export default function VendorOrderDetailPage() {
                 ) : null}
                 {canAdvanceDelivery && advanceLabel ? (
                   <Button onClick={handleAdvanceDelivery} disabled={processing}>
-                    <Truck className="h-4 w-4" />
+                    <PackageCheck className="h-4 w-4" />
                     {advanceLabel}
                   </Button>
                 ) : null}
