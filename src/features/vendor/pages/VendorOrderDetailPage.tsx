@@ -6,6 +6,7 @@ import {
   MapPin,
   Package,
   PackageCheck,
+  Truck,
   User,
   XCircle,
 } from 'lucide-react'
