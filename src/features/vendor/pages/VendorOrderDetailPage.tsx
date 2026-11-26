@@ -75,6 +75,7 @@ export default function VendorOrderDetailPage() {
   const confirmPayment = useOrderStore((s) => s.confirmPayment)
   const rejectPayment = useOrderStore((s) => s.rejectPayment)
   const advanceDelivery = useOrderStore((s) => s.advanceDelivery)
+  const cancelOrder = useOrderStore((s) => s.cancelOrder)
 
   const [processing, setProcessing] = useState(false)
 
@@ -150,17 +151,31 @@ export default function VendorOrderDetailPage() {
     setProcessing(false)
   }
 
+  const handleCancelOrder = async () => {
+    if (processing) return
+    setProcessing(true)
+    const result = await cancelOrder(order.id, 'vendor')
+    if (result.ok) {
+      toast.success('Order cancelled and stock restored')
+    } else {
+      toast.error(result.message)
+    }
+    setProcessing(false)
+  }
+
   const deliveryStatus = normalizeDeliveryStatus(order.deliveryStatus)
   const advanceLabel = nextDeliveryActionLabel(deliveryStatus)
   const canAdvanceDelivery =
     order.status === 'confirmed' && advanceLabel !== null
+  const canVendorCancel =
+    order.status === 'confirmed' && deliveryStatus === 'packing'
 
   const statusNotice = (() => {
     switch (order.status) {
       case 'awaiting_vendor_confirmation':
         return (
           <Notice tone="pending" title="Customer submitted payment">
-            Check the transaction reference, then confirm or reject below.
+            Check the transaction reference below, then confirm or reject.
           </Notice>
         )
       case 'confirmed':
@@ -169,7 +184,7 @@ export default function VendorOrderDetailPage() {
             {deliveryStatus === 'delivered'
               ? 'Keri delivery is complete.'
               : deliveryStatus === 'packing'
-                ? 'Pack the order, then mark it Ready for Keri. Delivery updates after that come from Keri.'
+                ? 'Pack the order, then mark it Ready for Keri. You can still cancel while packing, before marking Ready for Keri.'
                 : 'Waiting for Keri. Out for delivery and delivered are updated by Keri.'}
           </Notice>
         )
@@ -177,6 +192,21 @@ export default function VendorOrderDetailPage() {
         return (
           <Notice tone="danger" title="Payment rejected">
             The customer may resubmit their payment details.
+          </Notice>
+        )
+      case 'cancelled':
+        return (
+          <Notice
+            tone="danger"
+            title={
+              order.cancelledBy === 'vendor'
+                ? `Cancelled by ${order.vendorName}`
+                : 'Cancelled by customer'
+            }
+          >
+            {order.cancelledBy === 'vendor'
+              ? 'This order was cancelled while packing and its item stock was restored.'
+              : 'The customer cancelled this order before payment was confirmed.'}
           </Notice>
         )
       default:
@@ -187,6 +217,59 @@ export default function VendorOrderDetailPage() {
         )
     }
   })()
+
+  const beforeConfirm = order.status !== 'confirmed'
+  const hasSidebar = canProcess || !beforeConfirm
+
+  const customerCard = (
+    <SectionCard title="Customer" icon={User}>
+      <dl className="grid gap-4">
+        <Field label="Name">{order.customerName}</Field>
+        <Field label="Contact">{order.contactNumber}</Field>
+        <Field label="Drop-off address">{order.deliveryAddress || '—'}</Field>
+        {order.notes ? <Field label="Notes">{order.notes}</Field> : null}
+        <Field label="Last updated">{formatDateTime(order.updatedAt)}</Field>
+      </dl>
+    </SectionCard>
+  )
+
+  const paymentCard = (
+    <SectionCard title="Payment" icon={CreditCard}>
+      <dl className="grid gap-4">
+        <Field label="Transaction reference" mono>
+          {order.transactionReference ?? '—'}
+        </Field>
+        {order.paymentSubmittedAt ? (
+          <Field label="Submitted">
+            {formatDateTime(order.paymentSubmittedAt)}
+          </Field>
+        ) : null}
+        <Field label="Booking group" mono>
+          {order.bookingGroupId}
+        </Field>
+      </dl>
+    </SectionCard>
+  )
+
+  const pickupCard = (
+    <SectionCard title="Keri pickup" icon={MapPin}>
+      <dl className="grid gap-4">
+        <Field label="Palengke">{order.branchName}</Field>
+        <Field label="Coordinates" mono>
+          {order.pickupLat.toFixed(5)}, {order.pickupLng.toFixed(5)}
+        </Field>
+        <Field label="Pickup PIN" mono>
+          {order.pickupCode ?? 'Created at Ready for Keri'}
+        </Field>
+        <Field label="Rider remarks" mono>
+          {order.pickupCode ? formatKeriRiderRemarks(order.pickupCode) : '—'}
+        </Field>
+        <Field label="Tracking ID" mono>
+          {order.keriTrackingId ?? 'Assigned when dispatched'}
+        </Field>
+      </dl>
+    </SectionCard>
+  )
 
   return (
     <div className="space-y-6">
@@ -200,7 +283,13 @@ export default function VendorOrderDetailPage() {
 
       {statusNotice}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div
+        className={
+          hasSidebar
+            ? 'grid gap-6 lg:grid-cols-[1fr_340px]'
+            : 'grid gap-6'
+        }
+      >
         <div className="space-y-6">
           {/* Items */}
           <SectionCard
@@ -247,6 +336,14 @@ export default function VendorOrderDetailPage() {
             </dl>
           </SectionCard>
 
+          {beforeConfirm ? (
+            <div className="grid items-stretch gap-6 md:grid-cols-3 [&>section]:h-full">
+              {customerCard}
+              {paymentCard}
+              {pickupCard}
+            </div>
+          ) : null}
+
           {order.status === 'confirmed' ? (
             <SectionCard title="Keri delivery" icon={Truck}>
               <div className="space-y-5">
@@ -281,17 +378,56 @@ export default function VendorOrderDetailPage() {
                     Ready for Keri.
                   </p>
                 ) : null}
-                {canAdvanceDelivery && advanceLabel ? (
-                  <Button onClick={handleAdvanceDelivery} disabled={processing}>
-                    <PackageCheck className="h-4 w-4" />
-                    {advanceLabel}
-                  </Button>
+                {(canAdvanceDelivery && advanceLabel) || canVendorCancel ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {canAdvanceDelivery && advanceLabel ? (
+                      <Button onClick={handleAdvanceDelivery} disabled={processing}>
+                        <PackageCheck className="h-4 w-4" />
+                        {advanceLabel}
+                      </Button>
+                    ) : null}
+                    {canVendorCancel ? (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            disabled={processing}
+                            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Cancel order
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will cancel the order for {order.customerName}, restore
+                              item stock, and let the customer know {order.vendorName}{' '}
+                              cancelled it. Once an order is marked Ready for Keri, it can
+                              no longer be cancelled.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Keep order</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleCancelOrder}
+                              className="bg-red-600 text-white hover:bg-red-700"
+                            >
+                              Yes, cancel order
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </SectionCard>
           ) : null}
         </div>
 
+        {hasSidebar ? (
         <aside className="space-y-6">
           {canProcess ? (
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary-deep to-primary p-5 text-white shadow-[var(--shadow-lift)]">
@@ -364,54 +500,15 @@ export default function VendorOrderDetailPage() {
             </div>
           ) : null}
 
-          <SectionCard title="Customer" icon={User}>
-            <dl className="grid gap-4">
-              <Field label="Name">{order.customerName}</Field>
-              <Field label="Contact">{order.contactNumber}</Field>
-              <Field label="Drop-off address">
-                {order.deliveryAddress || '—'}
-              </Field>
-              {order.notes ? <Field label="Notes">{order.notes}</Field> : null}
-              <Field label="Last updated">{formatDateTime(order.updatedAt)}</Field>
-            </dl>
-          </SectionCard>
-
-          <SectionCard title="Payment" icon={CreditCard}>
-            <dl className="grid gap-4">
-              <Field label="Transaction reference" mono>
-                {order.transactionReference ?? '—'}
-              </Field>
-              {order.paymentSubmittedAt ? (
-                <Field label="Submitted">
-                  {formatDateTime(order.paymentSubmittedAt)}
-                </Field>
-              ) : null}
-              <Field label="Booking group" mono>
-                {order.bookingGroupId}
-              </Field>
-            </dl>
-          </SectionCard>
-
-          <SectionCard title="Keri pickup" icon={MapPin}>
-            <dl className="grid gap-4">
-              <Field label="Palengke">{order.branchName}</Field>
-              <Field label="Coordinates" mono>
-                {order.pickupLat.toFixed(5)}, {order.pickupLng.toFixed(5)}
-              </Field>
-              <Field label="Pickup PIN" mono>
-                {order.pickupCode ?? 'Created at Ready for Keri'}
-              </Field>
-              <Field label="Rider remarks" mono>
-                {order.pickupCode
-                  ? formatKeriRiderRemarks(order.pickupCode)
-                  : '—'}
-              </Field>
-              <Field label="Tracking ID" mono>
-                {order.keriTrackingId ?? 'Assigned when dispatched'}
-              </Field>
-            </dl>
-          </SectionCard>
+          {!beforeConfirm ? (
+            <>
+              {customerCard}
+              {paymentCard}
+              {pickupCard}
+            </>
+          ) : null}
         </aside>
+        ) : null}
       </div>
     </div>
   )

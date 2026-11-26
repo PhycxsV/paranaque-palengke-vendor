@@ -39,6 +39,7 @@ const TAB_DEFS: { value: FilterTab; label: string }[] = [
   { value: 'pending_payment', label: ORDER_STATUS_LABELS.pending_payment },
   { value: 'confirmed', label: ORDER_STATUS_LABELS.confirmed },
   { value: 'payment_rejected', label: ORDER_STATUS_LABELS.payment_rejected },
+  { value: 'cancelled', label: ORDER_STATUS_LABELS.cancelled },
 ]
 
 function initials(name: string) {
@@ -65,7 +66,10 @@ export default function VendorOrdersPage() {
   const [query, setQuery] = useState('')
 
   const vendorOrders = useMemo<Order[]>(
-    () => orders.filter((o) => o.vendorId === activeVendorId),
+    () =>
+      orders
+        .filter((o) => o.vendorId === activeVendorId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [orders, activeVendorId],
   )
 

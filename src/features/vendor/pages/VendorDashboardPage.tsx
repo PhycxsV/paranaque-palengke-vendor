@@ -68,7 +68,10 @@ export default function VendorDashboardPage() {
   )
 
   const vendorOrders = useMemo<Order[]>(
-    () => orders.filter((o) => o.vendorId === activeVendorId),
+    () =>
+      orders
+        .filter((o) => o.vendorId === activeVendorId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [orders, activeVendorId],
   )
   const vendorOffers = useMemo(
