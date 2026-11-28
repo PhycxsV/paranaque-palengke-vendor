@@ -5,6 +5,7 @@ import {
   advanceOrderDelivery,
   cancelOrderApi,
   checkoutOrders,
+  fetchProducts,
   isApiConfigured,
   submitOrderPayment,
   vendorDecideOrder,
@@ -334,12 +335,16 @@ export const useOrderStore = create<OrderState>()(
               ...order,
               status: result.status,
               deliveryStatus: result.deliveryStatus ?? 'packing',
+              reservationExpiresAt: undefined,
               updatedAt: new Date().toISOString(),
             }
             set({
               orders: get().orders.map((o) => (o.id === orderId ? updated : o)),
             })
             deductStock()
+            void fetchProducts()
+              .then((fresh) => useProductStore.setState({ products: fresh }))
+              .catch(() => undefined)
             return { ok: true, order: updated }
           } catch (error) {
             return {

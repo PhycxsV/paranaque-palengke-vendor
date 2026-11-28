@@ -6,24 +6,33 @@ import {
   createProduct,
   isApiConfigured,
   updateProduct as updateProductApi,
+  uploadProductImage,
 } from '@/lib/api'
 import { generateId } from '@/lib/utils'
 import type { Product, ProductFormInput } from '@/types'
 
-type ActionResult = { ok: true; product: Product } | { ok: false; message: string }
+/** `photoError` is set when the product saved but its photo could not be uploaded. */
+type ActionResult =
+  | { ok: true; product: Product; photoError?: string }
+  | { ok: false; message: string }
+type UpdateResult =
+  | { ok: true; photoError?: string }
+  | { ok: false; message: string }
 
 interface ProductState {
   products: Product[]
   addProduct: (
     vendorId: string,
     input: ProductFormInput,
+    imageFile?: File | null,
   ) => Promise<ActionResult>
   updateProduct: (
     productId: string,
     input: Partial<Omit<ProductFormInput, 'commodityId'>> & {
       commodityId?: string
     },
-  ) => Promise<{ ok: true } | { ok: false; message: string }>
+    imageFile?: File | null,
+  ) => Promise<UpdateResult>
   toggleAvailability: (
     productId: string,
   ) => Promise<{ ok: true } | { ok: false; message: string }>
@@ -38,12 +47,29 @@ export const useProductStore = create<ProductState>()(
   persist(
     (set, get) => ({
       products: isApiConfigured() ? [] : seedProducts,
-      addProduct: async (vendorId, input) => {
+      addProduct: async (vendorId, input, imageFile) => {
         if (isApiConfigured()) {
           try {
-            const product = await createProduct(vendorId, input)
+            let product = await createProduct(vendorId, input)
             set({ products: [...get().products, product] })
-            return { ok: true, product }
+            let photoError: string | undefined
+            if (imageFile) {
+              try {
+                const imageUrl = await uploadProductImage(product.id, imageFile)
+                product = { ...product, imageUrl }
+                set({
+                  products: get().products.map((p) =>
+                    p.id === product.id ? product : p,
+                  ),
+                })
+              } catch (error) {
+                photoError =
+                  error instanceof Error
+                    ? error.message
+                    : 'The photo could not be uploaded.'
+              }
+            }
+            return { ok: true, product, photoError }
           } catch (error) {
             return {
               ok: false,
@@ -61,16 +87,28 @@ export const useProductStore = create<ProductState>()(
         set({ products: [...get().products, product] })
         return { ok: true, product }
       },
-      updateProduct: async (productId, input) => {
+      updateProduct: async (productId, input, imageFile) => {
         if (isApiConfigured()) {
           try {
-            const product = await updateProductApi(productId, input)
+            let product = await updateProductApi(productId, input)
+            let photoError: string | undefined
+            if (imageFile) {
+              try {
+                const imageUrl = await uploadProductImage(productId, imageFile)
+                product = { ...product, imageUrl }
+              } catch (error) {
+                photoError =
+                  error instanceof Error
+                    ? error.message
+                    : 'The photo could not be uploaded.'
+              }
+            }
             set({
               products: get().products.map((p) =>
                 p.id === productId ? product : p,
               ),
             })
-            return { ok: true }
+            return { ok: true, photoError }
           } catch (error) {
             return {
               ok: false,

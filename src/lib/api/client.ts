@@ -17,6 +17,17 @@ export function resolveMediaUrl(url?: string | null): string {
   return `${origin}${url.startsWith('/') ? url : `/${url}`}`
 }
 
+/**
+ * Inverse of resolveMediaUrl: saves uploaded files as `/uploads/...` so stored
+ * records do not depend on which API host served the image.
+ */
+export function toStoredMediaUrl(url?: string | null): string {
+  const value = (url ?? '').trim()
+  const origin = (API_BASE_URL ?? '').replace(/\/api\/?$/, '')
+  if (origin && value.startsWith(`${origin}/uploads/`)) return value.slice(origin.length)
+  return value
+}
+
 const TOKEN_KEY = `${STORAGE_PREFIX}-auth-jwt`
 
 export function getStoredToken(): string | null {

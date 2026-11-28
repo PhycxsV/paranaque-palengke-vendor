@@ -11,7 +11,6 @@ import {
   Package,
   ShoppingCart,
   Sparkles,
-  Star,
   TriangleAlert,
   XCircle,
 } from 'lucide-react'
@@ -27,7 +26,6 @@ import { cn, formatDateTime, formatPeso } from '@/lib/utils'
 import { useBranchStore } from '@/stores/branch-store'
 import { useChatStore } from '@/stores/chat-store'
 import { useSessionStore } from '@/stores/session-reset-store'
-import { summarizeFeedback, useFeedbackStore } from '@/stores/feedback-store'
 import { useOfferStore } from '@/stores/offer-store'
 import { useOrderStore } from '@/stores/order-store'
 import { useProductStore } from '@/stores/product-store'
@@ -61,11 +59,6 @@ export default function VendorDashboardPage() {
   const products = useProductStore((s) => s.products)
   const chatThreads = useChatStore((s) => s.threads)
   const chatMessages = useChatStore((s) => s.messages)
-  const allFeedback = useFeedbackStore((s) => s.feedback)
-  const reviewSummary = useMemo(
-    () => summarizeFeedback(allFeedback.filter((f) => f.vendorId === activeVendorId)),
-    [allFeedback, activeVendorId],
-  )
 
   const vendorOrders = useMemo<Order[]>(
     () =>
@@ -126,7 +119,7 @@ export default function VendorDashboardPage() {
       icon: Clock,
       tone: 'bg-gold-50 text-[#7a5d00]',
       title: `${stats.awaiting} order${stats.awaiting === 1 ? '' : 's'} waiting for your confirmation`,
-      hint: 'Check the payment, then confirm or reject.',
+      hint: 'Check the proof of payment, then confirm it.',
     },
     unreadChats > 0 && {
       key: 'chat',
@@ -186,18 +179,6 @@ export default function VendorDashboardPage() {
               {vendor?.name ?? 'Vendor'}
             </h1>
             <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold sm:mt-4">
-              {reviewSummary.count > 0 ? (
-                <Link
-                  to="/vendor/feedback"
-                  className="inline-flex items-center gap-1.5 rounded-full bg-gold px-3 py-1.5 text-primary-deep transition active:scale-95"
-                >
-                  <Star className="h-3.5 w-3.5 fill-primary-deep" />
-                  {reviewSummary.average.toFixed(1)}
-                  <span className="font-medium opacity-80">
-                    · {reviewSummary.count} review{reviewSummary.count === 1 ? '' : 's'}
-                  </span>
-                </Link>
-              ) : null}
               <span
                 className={cn(
                   'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5',
@@ -285,11 +266,12 @@ export default function VendorDashboardPage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        {/* Recent orders */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:grid-rows-[auto_1fr] lg:items-start">
+        {/* Recent orders: below "Needs attention" on mobile, left column on desktop */}
         <SectionCard
           title="Recent orders"
           icon={ClipboardList}
+          className="order-2 lg:order-none lg:row-span-2 lg:self-stretch"
           bodyClassName="p-0 sm:p-0"
           action={
             vendorOrders.length > 0 ? (
@@ -343,9 +325,14 @@ export default function VendorDashboardPage() {
           )}
         </SectionCard>
 
-        {/* Right column */}
-        <div className="space-y-6">
-          <SectionCard title="Needs attention" icon={TriangleAlert} bodyClassName="p-3 sm:p-3">
+        {/* Needs attention + Keri info: `contents` lets them reorder as grid items */}
+        <div className="contents">
+          <SectionCard
+            title="Needs attention"
+            icon={TriangleAlert}
+            className="order-1 lg:order-none"
+            bodyClassName="p-3 sm:p-3"
+          >
             {attention.length === 0 && attentionProducts.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted">
                 Nothing urgent right now. Nice work!
@@ -403,7 +390,7 @@ export default function VendorDashboardPage() {
             )}
           </SectionCard>
 
-          <div className="relative overflow-hidden rounded-2xl border border-lime/50 bg-gradient-to-br from-lime-50 to-white p-5">
+          <div className="relative order-3 overflow-hidden rounded-2xl border border-lime/50 bg-gradient-to-br from-lime-50 to-white p-5 lg:order-none">
             <p className="text-sm font-bold text-primary-deep">Keri delivery</p>
             <p className="mt-1 text-xs leading-relaxed text-muted">
               Once every vendor in a checkout confirms payment, a shared Keri

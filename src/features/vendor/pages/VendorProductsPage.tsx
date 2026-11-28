@@ -36,6 +36,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { FilterTabs, type FilterTabItem } from '@/components/shared/FilterTabs'
+import { PhotoUploadField } from '@/components/shared/PhotoUploadField'
 import { PortalHeader } from '@/components/shared/PortalHeader'
 import { ProductImage } from '@/components/shared/ProductImage'
 import { useSessionStore } from '@/stores/session-reset-store'
@@ -51,6 +52,7 @@ import {
   PRICE_DISCLAIMER,
   VENDOR_STOCK_UNITS,
 } from '@/constants'
+import { getReservedStock } from '@/lib/stock'
 import { cn, formatPeso } from '@/lib/utils'
 import type { Product, ProductFormInput, ProductUnit } from '@/types'
 
@@ -226,6 +228,7 @@ export default function VendorProductsPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [form, setForm] = useState<ProductFormInput>(EMPTY_FORM)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [errors, setErrors] = useState<FormErrors>({})
   const [filter, setFilter] = useState<ListFilter>('all')
   const [query, setQuery] = useState('')
@@ -267,11 +270,13 @@ export default function VendorProductsPage() {
 
   const openAdd = () => {
     setForm(EMPTY_FORM)
+    setImageFile(null)
     setErrors({})
     setAddOpen(true)
   }
 
   const openEdit = (product: Product) => {
+    setImageFile(null)
     setForm({
       commodityId: product.commodityId,
       name: product.name,
@@ -337,13 +342,17 @@ export default function VendorProductsPage() {
       imageUrl: form.imageUrl.trim(),
       vendorPrice: Number(form.vendorPrice.toFixed(2)),
       weightKg: Number(form.weightKg.toFixed(3)),
-    })
+    }, imageFile)
     if (!result.ok) {
       toast.error(result.message)
       return
     }
     setAddOpen(false)
+    setImageFile(null)
     toast.success('Product added')
+    if (result.photoError) {
+      toast.warning(`Product saved, but the photo was not uploaded: ${result.photoError}`)
+    }
   }
 
   const handleEdit = async () => {
@@ -362,13 +371,17 @@ export default function VendorProductsPage() {
       stock: form.stock,
       imageUrl: form.imageUrl.trim(),
       isAvailable: form.isAvailable,
-    })
+    }, imageFile)
     if (!result.ok) {
       toast.error(result.message)
       return
     }
     setEditProduct(null)
+    setImageFile(null)
     toast.success('Product updated')
+    if (result.photoError) {
+      toast.warning(`Product saved, but the photo was not uploaded: ${result.photoError}`)
+    }
   }
 
   const handleToggle = async (product: Product) => {
@@ -570,22 +583,14 @@ export default function VendorProductsPage() {
           />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="pf-img">Image URL</Label>
-          <div className="flex items-center gap-3">
-            {form.imageUrl ? (
-              <ProductImage
-                src={form.imageUrl}
-                alt="Preview"
-                className="h-11 w-11 shrink-0 rounded-lg ring-1 ring-border"
-              />
-            ) : null}
-            <Input
-              id="pf-img"
-              value={form.imageUrl}
-              onChange={(e) => updateField('imageUrl', e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
+          <Label>Product photo</Label>
+          <PhotoUploadField
+            subject="product"
+            file={imageFile}
+            onFileChange={setImageFile}
+            imageUrl={form.imageUrl}
+            onImageUrlChange={(value) => updateField('imageUrl', value)}
+          />
         </div>
         <label
           htmlFor="pf-avail"
@@ -658,6 +663,7 @@ export default function VendorProductsPage() {
               {visibleProducts.map((product) => {
                 const vendorPrice = getVendorPrice(product, commodities)
                 const range = getCommodityRange(product, commodities)
+                const reserved = getReservedStock(product)
                 const out = product.stock <= 0
                 const low = !out && product.stock <= LOW_STOCK_THRESHOLD
                 return (
@@ -707,7 +713,9 @@ export default function VendorProductsPage() {
                       >
                         {out
                           ? 'Out of stock'
-                          : `${product.stock} ${formatUnitLabel(product.unit)} left`}
+                          : reserved > 0
+                            ? `${product.stock} ${formatUnitLabel(product.unit)} left · ${reserved} reserved`
+                            : `${product.stock} ${formatUnitLabel(product.unit)} left`}
                       </span>
                     </div>
 
@@ -776,6 +784,7 @@ export default function VendorProductsPage() {
             <ul className="space-y-3 sm:hidden">
               {visibleProducts.map((product) => {
                 const vendorPrice = getVendorPrice(product, commodities)
+                const reserved = getReservedStock(product)
                 const out = product.stock <= 0
                 const low = !out && product.stock <= LOW_STOCK_THRESHOLD
                 return (
@@ -833,7 +842,9 @@ export default function VendorProductsPage() {
                           >
                             {out
                               ? 'Out of stock'
-                              : `${product.stock} ${formatUnitLabel(product.unit)} left`}
+                              : reserved > 0
+                                ? `${product.stock} ${formatUnitLabel(product.unit)} left · ${reserved} reserved`
+                                : `${product.stock} ${formatUnitLabel(product.unit)} left`}
                           </span>
                         </div>
                       </div>

@@ -33,6 +33,7 @@ import { DeliveryMilestoneTracker } from '@/components/shared/DeliveryMilestoneT
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Notice } from '@/components/shared/Notice'
 import { PortalHeader } from '@/components/shared/PortalHeader'
+import { PaymentProofButton } from '@/components/shared/PaymentProofButton'
 import { ProductImage } from '@/components/shared/ProductImage'
 import { SectionCard } from '@/components/shared/SectionCard'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -73,9 +74,7 @@ export default function VendorOrderDetailPage() {
   const activeVendorId = useSessionStore((s) => s.activeVendorId)
   const orders = useOrderStore((s) => s.orders)
   const confirmPayment = useOrderStore((s) => s.confirmPayment)
-  const rejectPayment = useOrderStore((s) => s.rejectPayment)
   const advanceDelivery = useOrderStore((s) => s.advanceDelivery)
-  const cancelOrder = useOrderStore((s) => s.cancelOrder)
 
   const [processing, setProcessing] = useState(false)
 
@@ -119,18 +118,6 @@ export default function VendorOrderDetailPage() {
     setProcessing(false)
   }
 
-  const handleReject = async () => {
-    if (processing) return
-    setProcessing(true)
-    const result = await rejectPayment(order.id, activeVendorId)
-    if (result.ok) {
-      toast.error('Payment has been rejected')
-    } else {
-      toast.error(result.message)
-    }
-    setProcessing(false)
-  }
-
   const handleAdvanceDelivery = async () => {
     if (processing) return
     setProcessing(true)
@@ -151,31 +138,17 @@ export default function VendorOrderDetailPage() {
     setProcessing(false)
   }
 
-  const handleCancelOrder = async () => {
-    if (processing) return
-    setProcessing(true)
-    const result = await cancelOrder(order.id, 'vendor')
-    if (result.ok) {
-      toast.success('Order cancelled and stock restored')
-    } else {
-      toast.error(result.message)
-    }
-    setProcessing(false)
-  }
-
   const deliveryStatus = normalizeDeliveryStatus(order.deliveryStatus)
   const advanceLabel = nextDeliveryActionLabel(deliveryStatus)
   const canAdvanceDelivery =
     order.status === 'confirmed' && advanceLabel !== null
-  const canVendorCancel =
-    order.status === 'confirmed' && deliveryStatus === 'packing'
 
   const statusNotice = (() => {
     switch (order.status) {
       case 'awaiting_vendor_confirmation':
         return (
           <Notice tone="pending" title="Customer submitted payment">
-            Check the transaction reference below, then confirm or reject.
+            Check the proof of payment and transaction reference below, then confirm payment.
           </Notice>
         )
       case 'confirmed':
@@ -184,7 +157,7 @@ export default function VendorOrderDetailPage() {
             {deliveryStatus === 'delivered'
               ? 'Keri delivery is complete.'
               : deliveryStatus === 'packing'
-                ? 'Pack the order, then mark it Ready for Keri. You can still cancel while packing, before marking Ready for Keri.'
+                ? 'Pack the order, then mark it Ready for Keri. Delivery updates after that come from Keri.'
                 : 'Waiting for Keri. Out for delivery and delivered are updated by Keri.'}
           </Notice>
         )
@@ -201,12 +174,16 @@ export default function VendorOrderDetailPage() {
             title={
               order.cancelledBy === 'vendor'
                 ? `Cancelled by ${order.vendorName}`
-                : 'Cancelled by customer'
+                : order.cancelledBy === 'system'
+                  ? 'Expired — payment window timed out'
+                  : 'Cancelled by customer'
             }
           >
             {order.cancelledBy === 'vendor'
               ? 'This order was cancelled while packing and its item stock was restored.'
-              : 'The customer cancelled this order before payment was confirmed.'}
+              : order.cancelledBy === 'system'
+                ? 'The customer did not submit payment within 10 minutes, so the stock reservation was released automatically.'
+                : 'The customer cancelled this order before payment was confirmed.'}
           </Notice>
         )
       default:
@@ -248,6 +225,12 @@ export default function VendorOrderDetailPage() {
           {order.bookingGroupId}
         </Field>
       </dl>
+      <div className="mt-5">
+        <PaymentProofButton
+          paymentProofUrl={order.paymentProofUrl}
+          className="w-full"
+        />
+      </div>
     </SectionCard>
   )
 
@@ -378,49 +361,11 @@ export default function VendorOrderDetailPage() {
                     Ready for Keri.
                   </p>
                 ) : null}
-                {(canAdvanceDelivery && advanceLabel) || canVendorCancel ? (
-                  <div className="flex flex-wrap items-center gap-3">
-                    {canAdvanceDelivery && advanceLabel ? (
-                      <Button onClick={handleAdvanceDelivery} disabled={processing}>
-                        <PackageCheck className="h-4 w-4" />
-                        {advanceLabel}
-                      </Button>
-                    ) : null}
-                    {canVendorCancel ? (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            disabled={processing}
-                            className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Cancel order
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will cancel the order for {order.customerName}, restore
-                              item stock, and let the customer know {order.vendorName}{' '}
-                              cancelled it. Once an order is marked Ready for Keri, it can
-                              no longer be cancelled.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Keep order</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleCancelOrder}
-                              className="bg-red-600 text-white hover:bg-red-700"
-                            >
-                              Yes, cancel order
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    ) : null}
-                  </div>
+                {canAdvanceDelivery && advanceLabel ? (
+                  <Button onClick={handleAdvanceDelivery} disabled={processing}>
+                    <PackageCheck className="h-4 w-4" />
+                    {advanceLabel}
+                  </Button>
                 ) : null}
               </div>
             </SectionCard>
@@ -462,36 +407,6 @@ export default function VendorOrderDetailPage() {
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleConfirm}>
                         Yes, confirm payment
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      disabled={processing}
-                      className="border border-white/25 bg-white/10 text-white shadow-none hover:bg-red-600 hover:text-white"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Reject payment
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Reject payment?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will mark the payment as rejected. The customer can
-                        resubmit their payment details afterwards.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleReject}
-                        className="bg-red-600 text-white hover:bg-red-700"
-                      >
-                        Yes, reject payment
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

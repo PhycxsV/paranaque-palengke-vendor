@@ -4,6 +4,8 @@ import { FEATURE_TAWAD_ENABLED } from '@/constants'
 import '@/stores/text-size-store'
 import { useBackendSync } from '@/hooks/useBackendSync'
 import { useIdleLogout } from '@/hooks/useIdleLogout'
+import { useProductsLiveSync } from '@/hooks/useProductsLiveSync'
+import { BrandLoader } from '@/components/shared/BrandLoader'
 import { RequireAuth } from '@/components/shared/RequireAuth'
 import { VendorLayout } from '@/features/vendor/layouts/VendorLayout'
 import AuthPage from '@/features/auth/AuthPage'
@@ -14,19 +16,15 @@ import VendorProductsPage from '@/features/vendor/pages/VendorProductsPage'
 import VendorStoreProfilePage from '@/features/vendor/pages/VendorStorePage'
 import VendorOffersPage from '@/features/vendor/pages/VendorOffersPage'
 import VendorChatPage from '@/features/vendor/pages/VendorChatPage'
-import VendorFeedbackPage from '@/features/vendor/pages/VendorFeedbackPage'
 import NotFoundPage from '@/features/customer/pages/NotFoundPage'
 
 function AppShell() {
   const { catalogReady, catalogError, apiConfigured } = useBackendSync()
   useIdleLogout()
+  useProductsLiveSync({ enabled: catalogReady })
 
   if (apiConfigured && !catalogReady) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-warm-white text-sm text-muted-foreground">
-        Connecting to Palengke API…
-      </div>
-    )
+    return <BrandLoader fullScreen label="Loading Palengke" />
   }
 
   return (
@@ -51,7 +49,6 @@ function AppShell() {
         >
           <Route index element={<VendorDashboardPage />} />
           <Route path="orders" element={<VendorOrdersPage />} />
-          <Route path="feedback" element={<VendorFeedbackPage />} />
           <Route path="orders/:orderId" element={<VendorOrderDetailPage />} />
           <Route path="products" element={<VendorProductsPage />} />
           <Route path="store" element={<VendorStoreProfilePage />} />

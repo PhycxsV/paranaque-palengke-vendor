@@ -4,6 +4,7 @@ import {
   apiRequest,
   apiUpload,
   resolveMediaUrl,
+  toStoredMediaUrl,
 } from './client'
 import {
   mapBranch,
@@ -108,7 +109,7 @@ export async function createCommodity(input: CommodityFormInput): Promise<Commod
         unit: input.unit,
         priceMin: input.priceMin,
         priceMax: input.priceMax,
-        imageUrl: input.imageUrl.trim(),
+        imageUrl: toStoredMediaUrl(input.imageUrl),
         effectiveFrom: new Date().toISOString().slice(0, 10),
         isActive: input.isActive,
       },
@@ -283,7 +284,7 @@ export async function createProduct(
         vendorPrice: input.vendorPrice,
         weightKg: input.weightKg,
         stock: input.stock,
-        imageUrl: input.imageUrl.trim(),
+        imageUrl: toStoredMediaUrl(input.imageUrl),
         isAvailable: input.isAvailable,
         isArchived: false,
       },
@@ -313,7 +314,7 @@ export async function updateProduct(
   if (input.vendorPrice !== undefined) data.vendorPrice = input.vendorPrice
   if (input.weightKg !== undefined) data.weightKg = input.weightKg
   if (input.stock !== undefined) data.stock = input.stock
-  if (input.imageUrl !== undefined) data.imageUrl = input.imageUrl.trim()
+  if (input.imageUrl !== undefined) data.imageUrl = toStoredMediaUrl(input.imageUrl)
   if (input.isAvailable !== undefined) data.isAvailable = input.isAvailable
   if (input.isArchived !== undefined) data.isArchived = input.isArchived
 
@@ -401,4 +402,30 @@ export async function updateVendorAccount(
     password: '',
     isActive: payload.data.isActive ?? input.isActive ?? true,
   }
+}
+
+/** Uploads one PNG/JPEG/WebP (≤ 5 MB) as a product photo. Vendor JWT must own the store. */
+export async function uploadProductImage(productId: string, file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('files', file)
+  const payload = await apiUpload<{ data: { imageUrl?: string } }>(
+    `/products/${productId}/image`,
+    formData,
+  )
+  const url = resolveMediaUrl(payload.data?.imageUrl)
+  if (!url) throw new ApiError('Upload succeeded but no image URL was returned.', 502)
+  return url
+}
+
+/** Uploads one PNG/JPEG/WebP (≤ 5 MB) as a commodity photo. LGU admin only. */
+export async function uploadCommodityImage(commodityId: string, file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append('files', file)
+  const payload = await apiUpload<{ data: { imageUrl?: string } }>(
+    `/commodities/${commodityId}/image`,
+    formData,
+  )
+  const url = resolveMediaUrl(payload.data?.imageUrl)
+  if (!url) throw new ApiError('Upload succeeded but no image URL was returned.', 502)
+  return url
 }

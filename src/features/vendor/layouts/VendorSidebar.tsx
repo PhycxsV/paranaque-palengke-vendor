@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   LogOut,
   MessageCircle,
-  MessageSquareHeart,
   Package,
   Store,
 } from 'lucide-react'
@@ -27,7 +26,6 @@ const links = [
   { to: '/vendor/orders', label: 'Orders', icon: ClipboardList },
   { to: '/vendor/products', label: 'Products', icon: Package },
   { to: '/vendor/chat', label: 'Chat', icon: MessageCircle },
-  { to: '/vendor/feedback', label: 'Feedback', icon: MessageSquareHeart },
   { to: '/vendor/offers', label: 'Offers', icon: HandCoins },
   { to: '/vendor/store', label: 'Store profile', icon: Store },
 ].filter((link) => FEATURE_TAWAD_ENABLED || link.to !== '/vendor/offers')
